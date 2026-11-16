@@ -14,14 +14,28 @@ connectDB();
 const app = express();
 
 // Middleware
+const allowedOrigins = [
+  'https://mellow-pothos-530e9c.netlify.app',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    // Allow any localhost port (3000, 3001, 5173, etc.) — Vite can pick any free port
     origin: (origin, callback) => {
-      const isLocalhost = !origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-      callback(null, isLocalhost);
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      const isNetlify = origin.endsWith('.netlify.app');
+      const isAllowed = isLocalhost || isNetlify || allowedOrigins.includes(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   })
