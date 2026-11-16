@@ -13,8 +13,8 @@ const COLS = [
   'Department', 'Designation', 'Joining Date', 'Status', 'Actions',
 ];
 
-const EmployeeTable = ({ employees, onView, onEdit, onDelete }) => {
-  if (!employees.length) {
+const EmployeeTable = ({ employees = [], onView, onEdit, onDelete }) => {
+  if (!employees?.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-400">
         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
@@ -42,7 +42,7 @@ const EmployeeTable = ({ employees, onView, onEdit, onDelete }) => {
           </tr>
         </thead>
         <tbody>
-          {employees.map((emp, idx) => (
+          {(employees || []).map((emp, idx) => (
             <tr
               key={emp._id}
               className={`border-b border-slate-100 hover:bg-indigo-50/40 transition-colors duration-150 ${
@@ -125,3 +125,5 @@ const EmployeeTable = ({ employees, onView, onEdit, onDelete }) => {
 };
 
 export default EmployeeTable;
+
+

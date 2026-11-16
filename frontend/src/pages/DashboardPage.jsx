@@ -75,8 +75,8 @@ const DashboardPage = () => {
           getStats(),
           getEmployees({ limit: 6 }),
         ]);
-        setStats(sRes.data);
-        setRecentEmployees(eRes.data);
+        setStats(sRes?.data || null);
+        setRecentEmployees(Array.isArray(eRes?.data) ? eRes.data : []);
       } catch (err) {
         setError(err.message || 'Failed to load dashboard');
       } finally {
@@ -187,7 +187,7 @@ const DashboardPage = () => {
                   key={dept._id}
                   name={dept._id}
                   count={dept.count}
-                  total={stats.totalEmployees}
+                  total={stats?.totalEmployees || 0}
                   active={dept.active}
                   inactive={dept.inactive}
                 />
@@ -211,7 +211,7 @@ const DashboardPage = () => {
             </button>
           </div>
           <div className="divide-y divide-slate-100">
-            {!recentEmployees.length ? (
+            {!recentEmployees?.length ? (
               <p className="text-slate-400 text-sm text-center py-8">No employees yet</p>
             ) : (
               recentEmployees.map((emp) => (

@@ -49,8 +49,8 @@ const EmployeesPage = () => {
       if (statusFilter !== 'All') params.status    = statusFilter;
 
       const res = await getEmployees(params);
-      setEmployees(res.data);
-      setTotal(res.total);
+      setEmployees(Array.isArray(res?.data) ? res.data : []);
+      setTotal(res?.total || 0);
     } catch (err) {
       setError(err.message || 'Failed to fetch employees');
     } finally {
@@ -228,10 +228,10 @@ const EmployeesPage = () => {
         )}
 
         {/* Footer */}
-        {!isLoading && !error && employees.length > 0 && (
+        {!isLoading && !error && (employees?.length || 0) > 0 && (
           <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/60">
             <p className="text-xs text-slate-400 font-medium">
-              Showing <span className="font-bold text-slate-600">{employees.length}</span> of{' '}
+              Showing <span className="font-bold text-slate-600">{employees?.length || 0}</span> of{' '}
               <span className="font-bold text-slate-600">{total}</span> employees
             </p>
           </div>
