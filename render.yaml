@@ -9,6 +9,8 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false   # set manually in Render dashboard (paste Railway URL)
+        sync: false   # set manually in Render dashboard (paste Render Internal DB URL)
       - key: CLIENT_URL
         sync: false   # set manually in Render dashboard (paste Vercel URL)
+      - key: PORT
+        value: 10000  # Render default port

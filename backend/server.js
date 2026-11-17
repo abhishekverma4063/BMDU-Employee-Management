@@ -8,7 +8,7 @@ const { connectDB } = require('./config/db');
 const employeeRoutes = require('./routes/employeeRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 
-// Connect to MySQL
+// Connect to PostgreSQL
 connectDB();
 
 const app = express();
@@ -27,7 +27,8 @@ app.use(
 
       const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
       const isNetlify = origin.endsWith('.netlify.app');
-      const isAllowed = isLocalhost || isNetlify || allowedOrigins.includes(origin);
+      const isVercel = origin.endsWith('.vercel.app');
+      const isAllowed = isLocalhost || isNetlify || isVercel || allowedOrigins.includes(origin);
 
       if (isAllowed) {
         callback(null, true);
