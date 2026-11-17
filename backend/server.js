@@ -8,7 +8,7 @@ const { connectDB } = require('./config/db');
 const employeeRoutes = require('./routes/employeeRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 
-// Connect to PostgreSQL
+// Connect to MongoDB
 connectDB();
 
 const app = express();

@@ -1,123 +1,99 @@
-const { DataTypes, Model } = require('sequelize');
-const { sequelize } = require('../config/db');
+const mongoose = require('mongoose');
 
-class Employee extends Model {}
-
-Employee.init(
+const employeeSchema = new mongoose.Schema(
   {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
     employeeId: {
-      type: DataTypes.STRING(20),
+      type: String,
       unique: true,
-      allowNull: true, // generated in hook before creation
+      trim: true,
     },
     employeeName: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      validate: {
-        notEmpty: { msg: 'Employee name is required' },
-        len: { args: [2, 100], msg: 'Name must be between 2 and 100 characters' },
-      },
+      type: String,
+      required: [true, 'Employee name is required'],
+      trim: true,
+      minlength: [2, 'Name must be at least 2 characters'],
+      maxlength: [100, 'Name must be at most 100 characters'],
     },
     email: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
+      type: String,
+      required: [true, 'Email is required'],
       unique: true,
-      validate: {
-        notEmpty: { msg: 'Email is required' },
-        isEmail: { msg: 'Please enter a valid email address' },
-      },
-      set(value) {
-        this.setDataValue('email', value ? value.toLowerCase().trim() : value);
-      },
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
     },
     phoneNumber: {
-      type: DataTypes.STRING(25),
-      allowNull: false,
+      type: String,
+      required: [true, 'Phone number is required'],
+      trim: true,
       validate: {
-        notEmpty: { msg: 'Phone number is required' },
-        isValidPhone(value) {
-          const digits = value.replace(/[\s\-\(\)\+\.]/g, '');
-          if (!/^\d{7,15}$/.test(digits)) {
-            throw new Error('Please enter a valid phone number (7–15 digits)');
-          }
+        validator: (v) => {
+          const digits = v.replace(/[\s\-\(\)\+\.]/g, '');
+          return /^\d{7,15}$/.test(digits);
         },
+        message: 'Please enter a valid phone number (7–15 digits)',
       },
     },
     department: {
-      type: DataTypes.ENUM(
-        'Engineering',
-        'Human Resources',
-        'Finance',
-        'Marketing',
-        'Sales',
-        'Operations',
-        'Product',
-        'Design',
-        'Legal',
-        'Customer Support'
-      ),
-      allowNull: false,
-      validate: {
-        notEmpty: { msg: 'Department is required' },
+      type: String,
+      required: [true, 'Department is required'],
+      enum: {
+        values: [
+          'Engineering',
+          'Human Resources',
+          'Finance',
+          'Marketing',
+          'Sales',
+          'Operations',
+          'Product',
+          'Design',
+          'Legal',
+          'Customer Support',
+        ],
+        message: '{VALUE} is not a valid department',
       },
     },
     designation: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      validate: {
-        notEmpty: { msg: 'Designation is required' },
-        len: { args: [2, 100], msg: 'Designation must be between 2 and 100 characters' },
-      },
+      type: String,
+      required: [true, 'Designation is required'],
+      trim: true,
+      minlength: [2, 'Designation must be at least 2 characters'],
+      maxlength: [100, 'Designation must be at most 100 characters'],
     },
     joiningDate: {
-      type: DataTypes.DATEONLY,
-      allowNull: false,
-      validate: {
-        notEmpty: { msg: 'Joining date is required' },
-        isDate: { msg: 'Please enter a valid date' },
-      },
+      type: Date,
+      required: [true, 'Joining date is required'],
     },
     status: {
-      type: DataTypes.ENUM('Active', 'Inactive'),
-      defaultValue: 'Active',
-      validate: {
-        isIn: {
-          args: [['Active', 'Inactive']],
-          msg: 'Status must be Active or Inactive',
-        },
+      type: String,
+      enum: {
+        values: ['Active', 'Inactive'],
+        message: 'Status must be Active or Inactive',
       },
+      default: 'Active',
     },
   },
-  {
-    sequelize,
-    modelName: 'Employee',
-    tableName: 'employees',
-    timestamps: true, // adds createdAt and updatedAt
-  }
+  { timestamps: true }
 );
 
-// Auto-generate a unique employeeId before creating a new record
-Employee.addHook('beforeCreate', async (employee) => {
-  if (!employee.employeeId) {
-    // Find the last BMDU-XXXX record by sorting and taking the latest
-    const { Op } = require('sequelize');
-    const last = await Employee.findOne({
-      where: { employeeId: { [Op.like]: 'BMDU-%' } },
-      order: [['id', 'DESC']],
-    });
+// Auto-generate BMDU-XXXX employeeId before saving a new document
+employeeSchema.pre('save', async function (next) {
+  if (this.isNew && !this.employeeId) {
+    const last = await mongoose
+      .model('Employee')
+      .findOne({ employeeId: /^BMDU-\d+$/ })
+      .sort({ employeeId: -1 });
 
     let nextNum = 1;
     if (last && last.employeeId) {
       const num = parseInt(last.employeeId.replace('BMDU-', ''), 10);
       if (!isNaN(num)) nextNum = num + 1;
     }
-    employee.employeeId = `BMDU-${String(nextNum).padStart(4, '0')}`;
+    this.employeeId = `BMDU-${String(nextNum).padStart(4, '0')}`;
   }
+  next();
 });
+
+const Employee = mongoose.model('Employee', employeeSchema);
 
 module.exports = Employee;

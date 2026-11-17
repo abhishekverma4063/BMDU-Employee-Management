@@ -1,4 +1,3 @@
-const { Op, fn, col, literal } = require('sequelize');
 const Employee = require('../models/Employee');
 
 // @desc    Create a new employee
@@ -8,7 +7,6 @@ const createEmployee = async (req, res, next) => {
   try {
     const { employeeName, email, phoneNumber, department, designation, joiningDate, status } = req.body;
 
-    // Check for missing required fields
     if (!employeeName || !email || !phoneNumber || !department || !designation || !joiningDate) {
       return res.status(400).json({
         success: false,
@@ -16,10 +14,7 @@ const createEmployee = async (req, res, next) => {
       });
     }
 
-    // Check for duplicate email
-    const existingEmployee = await Employee.findOne({
-      where: { email: email.toLowerCase().trim() },
-    });
+    const existingEmployee = await Employee.findOne({ email: email.toLowerCase().trim() });
     if (existingEmployee) {
       return res.status(409).json({
         success: false,
@@ -54,31 +49,24 @@ const getEmployees = async (req, res, next) => {
   try {
     const { search, department, status, page = 1, limit = 50 } = req.query;
 
-    const where = {};
+    const query = {};
 
     if (search) {
-      where[Op.or] = [
-        { employeeName: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } },
+      query.$or = [
+        { employeeName: { $regex: search, $options: 'i' } },
+        { email:         { $regex: search, $options: 'i' } },
+        { employeeId:    { $regex: search, $options: 'i' } },
       ];
     }
 
-    if (department && department !== 'All') {
-      where.department = department;
-    }
-
-    if (status && status !== 'All') {
-      where.status = status;
-    }
+    if (department && department !== 'All') query.department = department;
+    if (status     && status     !== 'All') query.status     = status;
 
     const offset = (Number(page) - 1) * Number(limit);
-
-    const { count: totalCount, rows: employees } = await Employee.findAndCountAll({
-      where,
-      order: [['createdAt', 'DESC']],
-      offset,
-      limit: Number(limit),
-    });
+    const [employees, totalCount] = await Promise.all([
+      Employee.find(query).sort({ createdAt: -1 }).skip(offset).limit(Number(limit)),
+      Employee.countDocuments(query),
+    ]);
 
     res.status(200).json({
       success: true,
@@ -100,26 +88,12 @@ const getEmployeeById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    if (!id || isNaN(Number(id)) || Number(id) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid employee ID format',
-      });
-    }
-
-    const employee = await Employee.findByPk(Number(id));
-
+    const employee = await Employee.findById(id);
     if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee not found',
-      });
+      return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    res.status(200).json({
-      success: true,
-      data: employee,
-    });
+    res.status(200).json({ success: true, data: employee });
   } catch (error) {
     next(error);
   }
@@ -131,23 +105,12 @@ const getEmployeeById = async (req, res, next) => {
 const updateEmployee = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    if (!id || isNaN(Number(id)) || Number(id) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid employee ID format',
-      });
-    }
-
     const { employeeName, email, phoneNumber, department, designation, joiningDate, status } = req.body;
 
-    // Check if updating email conflicts with another employee
     if (email) {
       const duplicate = await Employee.findOne({
-        where: {
-          email: email.toLowerCase().trim(),
-          id: { [Op.ne]: Number(id) },
-        },
+        email: email.toLowerCase().trim(),
+        _id: { $ne: id },
       });
       if (duplicate) {
         return res.status(409).json({
@@ -157,30 +120,17 @@ const updateEmployee = async (req, res, next) => {
       }
     }
 
-    const employee = await Employee.findByPk(Number(id));
+    const employee = await Employee.findByIdAndUpdate(
+      id,
+      { employeeName, email, phoneNumber, department, designation, joiningDate, status },
+      { new: true, runValidators: true }
+    );
 
     if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee not found',
-      });
+      return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    await employee.update({
-      employeeName,
-      email,
-      phoneNumber,
-      department,
-      designation,
-      joiningDate,
-      status,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Employee updated successfully',
-      data: employee,
-    });
+    res.status(200).json({ success: true, message: 'Employee updated successfully', data: employee });
   } catch (error) {
     next(error);
   }
@@ -193,29 +143,12 @@ const deleteEmployee = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    if (!id || isNaN(Number(id)) || Number(id) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid employee ID format',
-      });
-    }
-
-    const employee = await Employee.findByPk(Number(id));
-
+    const employee = await Employee.findByIdAndDelete(id);
     if (!employee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee not found',
-      });
+      return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    await employee.destroy();
-
-    res.status(200).json({
-      success: true,
-      message: 'Employee deleted successfully',
-      data: { id: Number(id) },
-    });
+    res.status(200).json({ success: true, message: 'Employee deleted successfully', data: { id } });
   } catch (error) {
     next(error);
   }
@@ -227,29 +160,21 @@ const deleteEmployee = async (req, res, next) => {
 const getStats = async (req, res, next) => {
   try {
     const [totalEmployees, activeEmployees, inactiveEmployees, departmentStats] = await Promise.all([
-      Employee.count(),
-      Employee.count({ where: { status: 'Active' } }),
-      Employee.count({ where: { status: 'Inactive' } }),
-      Employee.findAll({
-        attributes: [
-          'department',
-          [fn('COUNT', col('id')), 'count'],
-          [fn('SUM', literal("CASE WHEN status = 'Active' THEN 1 ELSE 0 END")), 'active'],
-          [fn('SUM', literal("CASE WHEN status = 'Inactive' THEN 1 ELSE 0 END")), 'inactive'],
-        ],
-        group: ['department'],
-        order: [[fn('COUNT', col('id')), 'DESC']],
-        raw: true,
-      }),
+      Employee.countDocuments(),
+      Employee.countDocuments({ status: 'Active' }),
+      Employee.countDocuments({ status: 'Inactive' }),
+      Employee.aggregate([
+        {
+          $group: {
+            _id: '$department',
+            count:    { $sum: 1 },
+            active:   { $sum: { $cond: [{ $eq: ['$status', 'Active']   }, 1, 0] } },
+            inactive: { $sum: { $cond: [{ $eq: ['$status', 'Inactive'] }, 1, 0] } },
+          },
+        },
+        { $sort: { count: -1 } },
+      ]),
     ]);
-
-    // Normalize the stats shape to match the old Mongoose aggregate output
-    const normalizedDeptStats = departmentStats.map((d) => ({
-      _id: d.department,
-      count: Number(d.count),
-      active: Number(d.active),
-      inactive: Number(d.inactive),
-    }));
 
     res.status(200).json({
       success: true,
@@ -257,8 +182,8 @@ const getStats = async (req, res, next) => {
         totalEmployees,
         activeEmployees,
         inactiveEmployees,
-        totalDepartments: normalizedDeptStats.length,
-        departmentStats: normalizedDeptStats,
+        totalDepartments: departmentStats.length,
+        departmentStats,
       },
     });
   } catch (error) {
