@@ -104,10 +104,11 @@ Employee.init(
 // Auto-generate a unique employeeId before creating a new record
 Employee.addHook('beforeCreate', async (employee) => {
   if (!employee.employeeId) {
-    // Find the last used numeric suffix
+    // Find the last BMDU-XXXX record by sorting and taking the latest
+    const { Op } = require('sequelize');
     const last = await Employee.findOne({
-      where: sequelize.literal("employeeId REGEXP '^BMDU-[0-9]+$'"),
-      order: [['employeeId', 'DESC']],
+      where: { employeeId: { [Op.like]: 'BMDU-%' } },
+      order: [['id', 'DESC']],
     });
 
     let nextNum = 1;

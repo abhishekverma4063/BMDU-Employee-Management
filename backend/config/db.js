@@ -2,16 +2,16 @@ const { Sequelize } = require('sequelize');
 
 let sequelize;
 
-// Production: use a single DATABASE_URL connection string (Railway, PlanetScale, etc.)
+// Production: use a single DATABASE_URL connection string (Render PostgreSQL, etc.)
 // Development: use individual DB_* environment variables
 if (process.env.DATABASE_URL) {
   sequelize = new Sequelize(process.env.DATABASE_URL, {
-    dialect: 'mysql',
+    dialect: 'postgres',
     logging: false,
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false, // needed for Railway / most cloud MySQL providers
+        rejectUnauthorized: false, // needed for Render / most cloud PostgreSQL providers
       },
     },
     pool: {
@@ -28,8 +28,8 @@ if (process.env.DATABASE_URL) {
     process.env.DB_PASSWORD || '',
     {
       host: process.env.DB_HOST || 'localhost',
-      port: Number(process.env.DB_PORT) || 3306,
-      dialect: 'mysql',
+      port: Number(process.env.DB_PORT) || 5432,
+      dialect: 'postgres',
       logging: false,
       pool: {
         max: 5,
@@ -44,13 +44,13 @@ if (process.env.DATABASE_URL) {
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ MySQL Connected successfully.');
+    console.log('✅ PostgreSQL Connected successfully.');
 
     // Creates tables if they don't exist — safe for production
     await sequelize.sync({ alter: false });
     console.log('✅ Database schema synced.');
   } catch (error) {
-    console.error(`❌ MySQL Connection Error: ${error.message}`);
+    console.error(`❌ PostgreSQL Connection Error: ${error.message}`);
     process.exit(1);
   }
 };

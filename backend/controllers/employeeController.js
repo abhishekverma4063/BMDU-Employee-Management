@@ -58,8 +58,8 @@ const getEmployees = async (req, res, next) => {
 
     if (search) {
       where[Op.or] = [
-        { employeeName: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } },
+        { employeeName: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
@@ -238,7 +238,7 @@ const getStats = async (req, res, next) => {
           [fn('SUM', literal("CASE WHEN status = 'Inactive' THEN 1 ELSE 0 END")), 'inactive'],
         ],
         group: ['department'],
-        order: [[literal('count'), 'DESC']],
+        order: [[fn('COUNT', col('id')), 'DESC']],
         raw: true,
       }),
     ]);
