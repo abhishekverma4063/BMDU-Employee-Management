@@ -1,108 +1,122 @@
-const mongoose = require('mongoose');
+const { DataTypes, Model } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-const employeeSchema = new mongoose.Schema(
+class Employee extends Model {}
+
+Employee.init(
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     employeeId: {
-      type: String,
+      type: DataTypes.STRING(20),
       unique: true,
+      allowNull: true, // generated in hook before creation
     },
     employeeName: {
-      type: String,
-      required: [true, 'Employee name is required'],
-      trim: true,
-      minlength: [2, 'Name must be at least 2 characters'],
-      maxlength: [100, 'Name cannot exceed 100 characters'],
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: 'Employee name is required' },
+        len: { args: [2, 100], msg: 'Name must be between 2 and 100 characters' },
+      },
     },
     email: {
-      type: String,
-      required: [true, 'Email is required'],
+      type: DataTypes.STRING(255),
+      allowNull: false,
       unique: true,
-      lowercase: true,
-      trim: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
+      validate: {
+        notEmpty: { msg: 'Email is required' },
+        isEmail: { msg: 'Please enter a valid email address' },
+      },
+      set(value) {
+        this.setDataValue('email', value ? value.toLowerCase().trim() : value);
+      },
     },
     phoneNumber: {
-      type: String,
-      required: [true, 'Phone number is required'],
-      trim: true,
+      type: DataTypes.STRING(25),
+      allowNull: false,
       validate: {
-        validator: (v) => {
-          // Strip all formatting chars and check for 7–15 digits
-          const digits = v.replace(/[\s\-\(\)\+\.]/g, '');
-          return /^\d{7,15}$/.test(digits);
+        notEmpty: { msg: 'Phone number is required' },
+        isValidPhone(value) {
+          const digits = value.replace(/[\s\-\(\)\+\.]/g, '');
+          if (!/^\d{7,15}$/.test(digits)) {
+            throw new Error('Please enter a valid phone number (7–15 digits)');
+          }
         },
-        message: 'Please enter a valid phone number (7–15 digits)',
       },
     },
     department: {
-      type: String,
-      required: [true, 'Department is required'],
-      trim: true,
-      enum: {
-        values: [
-          'Engineering',
-          'Human Resources',
-          'Finance',
-          'Marketing',
-          'Sales',
-          'Operations',
-          'Product',
-          'Design',
-          'Legal',
-          'Customer Support',
-        ],
-        message: '{VALUE} is not a valid department',
+      type: DataTypes.ENUM(
+        'Engineering',
+        'Human Resources',
+        'Finance',
+        'Marketing',
+        'Sales',
+        'Operations',
+        'Product',
+        'Design',
+        'Legal',
+        'Customer Support'
+      ),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: 'Department is required' },
       },
     },
     designation: {
-      type: String,
-      required: [true, 'Designation is required'],
-      trim: true,
-      minlength: [2, 'Designation must be at least 2 characters'],
-      maxlength: [100, 'Designation cannot exceed 100 characters'],
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: 'Designation is required' },
+        len: { args: [2, 100], msg: 'Designation must be between 2 and 100 characters' },
+      },
     },
     joiningDate: {
-      type: Date,
-      required: [true, 'Joining date is required'],
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+      validate: {
+        notEmpty: { msg: 'Joining date is required' },
+        isDate: { msg: 'Please enter a valid date' },
+      },
     },
     status: {
-      type: String,
-      enum: {
-        values: ['Active', 'Inactive'],
-        message: 'Status must be Active or Inactive',
+      type: DataTypes.ENUM('Active', 'Inactive'),
+      defaultValue: 'Active',
+      validate: {
+        isIn: {
+          args: [['Active', 'Inactive']],
+          msg: 'Status must be Active or Inactive',
+        },
       },
-      default: 'Active',
     },
   },
   {
-    timestamps: true,
+    sequelize,
+    modelName: 'Employee',
+    tableName: 'employees',
+    timestamps: true, // adds createdAt and updatedAt
   }
 );
 
-// Auto-generate a unique employeeId before saving
-employeeSchema.pre('save', async function (next) {
-  if (!this.employeeId) {
-    // Sort by employeeId descending to find the highest suffix used so far
-    const last = await mongoose
-      .model('Employee')
-      .findOne({ employeeId: { $regex: /^BMDU-\d+$/ } })
-      .sort({ employeeId: -1 });
+// Auto-generate a unique employeeId before creating a new record
+Employee.addHook('beforeCreate', async (employee) => {
+  if (!employee.employeeId) {
+    // Find the last used numeric suffix
+    const last = await Employee.findOne({
+      where: sequelize.literal("employeeId REGEXP '^BMDU-[0-9]+$'"),
+      order: [['employeeId', 'DESC']],
+    });
 
     let nextNum = 1;
-    if (last?.employeeId) {
+    if (last && last.employeeId) {
       const num = parseInt(last.employeeId.replace('BMDU-', ''), 10);
       if (!isNaN(num)) nextNum = num + 1;
     }
-    this.employeeId = `BMDU-${String(nextNum).padStart(4, '0')}`;
+    employee.employeeId = `BMDU-${String(nextNum).padStart(4, '0')}`;
   }
-  next();
 });
-
-// Indexes for search performance
-employeeSchema.index({ employeeName: 'text', email: 'text' });
-employeeSchema.index({ department: 1 });
-employeeSchema.index({ status: 1 });
-
-const Employee = mongoose.model('Employee', employeeSchema);
 
 module.exports = Employee;

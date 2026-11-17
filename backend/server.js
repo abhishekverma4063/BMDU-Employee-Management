@@ -1,14 +1,14 @@
+const dotenv = require('dotenv');
+// Load env vars FIRST — before any other require reads process.env
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/db');
 const employeeRoutes = require('./routes/employeeRoutes');
 const errorMiddleware = require('./middleware/errorMiddleware');
 
-// Load env vars
-dotenv.config();
-
-// Connect to MongoDB
+// Connect to MySQL
 connectDB();
 
 const app = express();
